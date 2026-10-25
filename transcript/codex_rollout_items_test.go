@@ -231,6 +231,25 @@ func TestConvertCodexItemsSkipsItemWithoutID(t *testing.T) {
 	}
 }
 
+// An item may carry the words the converter scans for (here as an MCP
+// argument key): it is still an item, not a turn_context line.
+func TestConvertCodexItemsWordsInItems(t *testing.T) {
+	t.Parallel()
+	content := `{"timestamp":"t","type":"session_meta","payload":{"id":"s1"}}
+{"timestamp":"t","type":"event_msg","payload":{"type":"task_started","turn_id":"t1"}}
+{"timestamp":"t","type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"UserMessage","id":"u1","content":[{"type":"text","text":"hi"}]}}}
+{"timestamp":"t","type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"AgentMessage","id":"m1","content":[{"type":"Text","text":"Hello"}]}}}
+{"timestamp":"t","type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"McpToolCall","id":"c1","server":"s","tool":"t","status":"completed","arguments":{"turn_context":1}}}}
+`
+	out, err := Convert([]byte(content), codexItemsOpts)
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	if !strings.Contains(string(out), `"id":"c1"`) {
+		t.Errorf("the MCP call naming turn_context was dropped:\n%s", out)
+	}
+}
+
 // A call with no assistant line of its own (reasoning only) gets a usage-only
 // line; a repeated snapshot adds nothing; a user message ends the open call.
 func TestConvertCodexItemsCallUsage(t *testing.T) {

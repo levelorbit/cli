@@ -135,17 +135,12 @@ func (c *codexItemsConverter) consume(content []byte, first int) error {
 
 // line returns the records of rollout line n, and tracks the open call.
 func (c *codexItemsConverter) line(line []byte, n int) []Record {
+	// The substring checks only skip lines cheaply: an item's text may
+	// contain any of these words, so each case confirms the line's type.
+	if bytes.Contains(line, []byte(`"turn_context"`)) && c.turnContext(line) {
+		return nil
+	}
 	switch {
-	case bytes.Contains(line, []byte(`"turn_context"`)):
-		var cl codexLine
-		if json.Unmarshal(line, &cl) == nil && cl.Type == codexTypeTurnContext {
-			var tc struct {
-				Model string `json:"model"`
-			}
-			if json.Unmarshal(cl.Payload, &tc) == nil && tc.Model != "" {
-				c.model = tc.Model
-			}
-		}
 	case !bytes.Contains(line, []byte(`"event_msg"`)):
 		// Not an item or a token count: response_item, session_meta, ...
 	case bytes.Contains(line, []byte(`"item_completed"`)):
@@ -172,6 +167,22 @@ func (c *codexItemsConverter) line(line []byte, n int) []Record {
 		return c.tokenCount(line, n)
 	}
 	return nil
+}
+
+// turnContext reports whether line is a turn_context line, and takes the
+// model it names.
+func (c *codexItemsConverter) turnContext(line []byte) bool {
+	var cl codexLine
+	if json.Unmarshal(line, &cl) != nil || cl.Type != codexTypeTurnContext {
+		return false
+	}
+	var tc struct {
+		Model string `json:"model"`
+	}
+	if json.Unmarshal(cl.Payload, &tc) == nil && tc.Model != "" {
+		c.model = tc.Model
+	}
+	return true
 }
 
 // tokenCount closes the open call at a new total_token_usage snapshot and
