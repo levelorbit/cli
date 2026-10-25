@@ -119,6 +119,9 @@ type codexConverter struct {
 // Each assistant line is one model call: the items since the previous call
 // closed, with the usage of the token_count event that closed it.
 func compactCodex(content []byte, opts Options) ([]byte, error) {
+	if hasCodexItems(content) {
+		return compactCodexItems(content, opts)
+	}
 	full := content
 	if opts.StartLine > 0 {
 		content = SliceFromLine(full, opts.StartLine)
