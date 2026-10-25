@@ -420,21 +420,28 @@ func codexUserText(raw json.RawMessage) string {
 		return ""
 	}
 
-	var texts []string
+	var parts []string
 	for _, b := range blocks {
-		if b.Type != "input_text" {
+		if b.Type == "input_text" {
+			parts = append(parts, b.Text)
+		}
+	}
+	return codexUserPartsText(parts)
+}
+
+// codexUserPartsText is the user prompt of a Codex user message's text parts:
+// system-injected parts dropped, IDE context tags stripped, and the non-empty
+// rest joined by blank lines.
+func codexUserPartsText(parts []string) string {
+	var texts []string
+	for _, p := range parts {
+		if isCodexSystemContent(p) {
 			continue
 		}
-		// Skip system-injected content.
-		if isCodexSystemContent(b.Text) {
-			continue
-		}
-		stripped := StripIDEContextTags(b.Text)
-		if stripped != "" {
+		if stripped := StripIDEContextTags(p); stripped != "" {
 			texts = append(texts, stripped)
 		}
 	}
-
 	return strings.Join(texts, "\n\n")
 }
 
